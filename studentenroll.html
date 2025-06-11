@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Enrollment Form</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <style>
+    body { padding: 40px; background: #f9f9f9; }
+    .container {
+      background: #fff; padding: 30px; border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2 class="text-center">Student Enrollment Form</h2>
+  <form id="studentForm">
+    <div class="form-group">
+      <label for="rollNo">Roll No:</label>
+      <input type="text" class="form-control" id="rollNo" required>
+    </div>
+    <div class="form-group">
+      <label for="fullName">Full Name:</label>
+      <input type="text" class="form-control" id="fullName" disabled required>
+    </div>
+    <div class="form-group">
+      <label for="class">Class:</label>
+      <input type="text" class="form-control" id="class" disabled required>
+    </div>
+    <div class="form-group">
+      <label for="birthDate">Birth Date:</label>
+      <input type="date" class="form-control" id="birthDate" disabled required>
+    </div>
+    <div class="form-group">
+      <label for="address">Address:</label>
+      <input type="text" class="form-control" id="address" disabled required>
+    </div>
+    <div class="form-group">
+      <label for="enrollDate">Enrollment Date:</label>
+      <input type="date" class="form-control" id="enrollDate" disabled required>
+    </div>
+
+    <button type="button" class="btn btn-success" id="saveBtn" onclick="saveData()" disabled>Save</button>
+    <button type="button" class="btn btn-primary" id="updateBtn" onclick="updateData()" disabled>Update</button>
+    <button type="button" class="btn btn-danger" onclick="resetForm()">Reset</button>
+  </form>
+</div>
+
+<script>
+const jpdbIML = "http://api.login2explore.com:5577/api/iml";
+const DB_NAME = "SCHOOL-DB";
+const REL_NAME = "STUDENT-TABLE";
+const connToken = "90934581|-31949213465441933|90956643";
+
+function disableAllFieldsExceptRoll() {
+  $("#fullName, #class, #birthDate, #address, #enrollDate").prop("disabled", true);
+  $("#saveBtn, #updateBtn").prop("disabled", true);
+  $("#rollNo").prop("disabled", false).focus();
+}
+
+function enableAllFields() {
+  $("#fullName, #class, #birthDate, #address, #enrollDate").prop("disabled", false);
+}
+
+function fillForm(data) {
+  $("#fullName").val(data.fullName);
+  $("#class").val(data.class);
+  $("#birthDate").val(data.birthDate);
+  $("#address").val(data.address);
+  $("#enrollDate").val(data.enrollDate);
+}
+
+function validateForm() {
+  const fields = ["#rollNo", "#fullName", "#class", "#birthDate", "#address", "#enrollDate"];
+  for (let id of fields) {
+    if ($(id).val().trim() === "") {
+      alert("Please fill all fields.");
+      $(id).focus();
+      return false;
+    }
+  }
+  return true;
+}
+
+function resetForm() {
+  $("#studentForm")[0].reset();
+  disableAllFieldsExceptRoll();
+}
+
+function saveData() {
+  if (!validateForm()) return;
+
+  const rollVal = $("#rollNo").val().trim();
+  const data = {
+    rollNo: rollVal,
+    fullName: $("#fullName").val().trim(),
+    class: $("#class").val().trim(),
+    birthDate: $("#birthDate").val().trim(),
+    address: $("#address").val().trim(),
+    enrollDate: $("#enrollDate").val().trim()
+  };
+
+  const getReq = {
+    token: connToken,
+    dbName: DB_NAME,
+    rel: REL_NAME,
+    cmd: "GET",
+    jsonStr: JSON.stringify({ rollNo: rollVal })
+  };
+
+  $.post(jpdbIML, JSON.stringify(getReq), function (res) {
+    if (res.status === 200 && res.data && Object.keys(res.data).length > 0) {
+      alert("Roll No already exists. Please use Update.");
+    } else {
+      // Proceed to save since roll number doesn't exist
+      const req = {
+        token: connToken,
+        dbName: DB_NAME,
+        cmd: "PUT",
+        rel: REL_NAME,
+        jsonStr: JSON.stringify(data)
+      };
+
+      $.post(jpdbIML, JSON.stringify(req), function (res) {
+        if (res.status === 200) {
+          alert("Data Saved Successfully.");
+          resetForm();
+        } else {
+          alert("Error saving data: " + res.message);
+        }
+      }).fail(() => alert("Error saving data."));
+    }
+  }).fail(() => alert("Error checking for duplicate roll no."));
+}
+
+function updateData() {
+  if (!validateForm()) return;
+
+  const rollVal = $("#rollNo").val().trim();
+  const data = {
+    rollNo: rollVal,
+    fullName: $("#fullName").val().trim(),
+    class: $("#class").val().trim(),
+    birthDate: $("#birthDate").val().trim(),
+    address: $("#address").val().trim(),
+    enrollDate: $("#enrollDate").val().trim()
+  };
+
+  const getReq = {
+    token: connToken,
+    dbName: DB_NAME,
+    rel: REL_NAME,
+    cmd: "GET",
+    jsonStr: JSON.stringify({ rollNo: rollVal })
+  };
+
+  $.post(jpdbIML, JSON.stringify(getReq), function (res) {
+    if (res.status !== 200 || !res.data || Object.keys(res.data).length === 0) {
+      alert("No record found to update.");
+      return;
+    }
+    
+    const recordNo = res.data.rec_no;
+
+    const updateReq = {
+      token: connToken,
+      dbName: DB_NAME,
+      rel: REL_NAME,
+      cmd: "UPDATE",
+      record: recordNo,
+      jsonStr: JSON.stringify(data)
+    };
+
+    $.post(jpdbIML, JSON.stringify(updateReq), function (res) {
+      if (res.status === 200) {
+        alert("Data Updated Successfully.");
+        resetForm();
+      } else {
+        alert("Error updating data: " + res.message);
+      }
+    }).fail(() => alert("Error updating data."));
+  }).fail(() => alert("Error finding record for update."));
+}
+
+$("#rollNo").on("change", function () {
+  const rollVal = $("#rollNo").val().trim();
+  if (rollVal === "") return;
+
+  const getReq = {
+    token: connToken,
+    dbName: DB_NAME,
+    rel: REL_NAME,
+    cmd: "GET",
+    jsonStr: JSON.stringify({ rollNo: rollVal })
+  };
+
+  $.post(jpdbIML, JSON.stringify(getReq), function (res) {
+    if (res.status === 200 && res.data && Object.keys(res.data).length > 0) {
+      // Record exists - enable update mode
+      fillForm(res.data);
+      enableAllFields();
+      $("#updateBtn").prop("disabled", false);
+      $("#saveBtn").prop("disabled", true);
+      $("#rollNo").prop("disabled", true);
+      $("#fullName").focus();
+    } else {
+      // New record - enable save mode
+      enableAllFields();
+      $("#saveBtn").prop("disabled", false);
+      $("#updateBtn").prop("disabled", true);
+      $("#rollNo").prop("disabled", true);
+      $("#fullName").focus();
+    }
+  }).fail(function() {
+    alert("Error fetching record. Please try again.");
+    resetForm();
+  });
+});
+
+$(document).ready(function () {
+  resetForm();
+});
+</script>
+
+</body>
+</html>
